@@ -1,26 +1,8 @@
-"use client";
-import { Suspense, useEffect } from "react";
-import { useRouter } from "next/navigation";
-import { useAuth } from "@/lib/auth-context";
+import { Suspense } from "react";
 import Dashboard from "@/components/dashboard";
 import LoadingDashboard from "@/components/loading-dashboard";
 
 export default function Home() {
-  const { isAuthenticated } = useAuth();
-  const router = useRouter();
-
-  // Handle redirect to login if not authenticated
-  useEffect(() => {
-    if (!isAuthenticated) {
-      router.push("/login");
-    }
-  }, [isAuthenticated, router]);
-
-  // If not authenticated, return null to prevent rendering the dashboard
-  if (!isAuthenticated) {
-    return null;
-  }
-
   return (
     <main className="min-h-screen bg-gray-100 dark:bg-gray-900">
       <div className="container mx-auto px-4 py-8">

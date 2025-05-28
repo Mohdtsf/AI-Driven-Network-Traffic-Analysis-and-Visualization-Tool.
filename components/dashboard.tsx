@@ -1,4 +1,3 @@
-// components/dashboard.tsx
 "use client";
 
 import { useEffect, useState, useCallback } from "react";
@@ -13,7 +12,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { AlertCircle, CheckCircle2 } from "lucide-react";
+import { AlertCircle, CheckCircle2, LogOut } from "lucide-react";
 import TrafficOverview from "@/components/traffic-overview";
 import TopTalkers from "@/components/top-talkers";
 import ProtocolDistribution from "@/components/protocol-distribution";
@@ -21,6 +20,8 @@ import AnomalyTimeline from "@/components/anomaly-timeline";
 import NetworkMap from "@/components/network-map";
 import AlertsList from "@/components/alerts-list";
 import { fetchNetworkOverview, setupWebSocket } from "@/lib/api";
+import { useAuth } from "@/lib/auth-context";
+import { useRouter } from "next/navigation";
 
 const initialDashboardData = {
   stats: {
@@ -37,12 +38,21 @@ const initialDashboardData = {
 };
 
 export default function Dashboard() {
+  const { token, logout, isAuthenticated } = useAuth();
   const [dashboardData, setDashboardData] = useState(initialDashboardData);
   const [alerts, setAlerts] = useState([]);
   const [isConnected, setIsConnected] = useState(true);
   const [activeTab, setActiveTab] = useState("overview");
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState(null);
+  const router = useRouter();
+
+  // Redirect to login if not authenticated
+  useEffect(() => {
+    if (!isAuthenticated) {
+      router.push("/login");
+    }
+  }, [isAuthenticated, router]);
 
   // Debounce to prevent excessive state updates (batch every 100ms)
   const debounceUpdate = useCallback((newData) => {
@@ -96,10 +106,12 @@ export default function Dashboard() {
   }, []);
 
   useEffect(() => {
+    if (!token) return; // Skip if no token (user will be redirected)
+
     const fetchData = async () => {
       try {
         setIsLoading(true);
-        const data = await fetchNetworkOverview();
+        const data = await fetchNetworkOverview(token);
         setDashboardData({
           ...data,
           top_talkers: data.top_talkers.map((talker) => ({
@@ -146,7 +158,7 @@ export default function Dashboard() {
     fetchData();
 
     let lastUpdate = 0;
-    const cleanupWebSocket = setupWebSocket((data) => {
+    const cleanupWebSocket = setupWebSocket(token, (data) => {
       const now = Date.now();
       if (now - lastUpdate >= 100) {
         if (data.traffic_data) {
@@ -196,7 +208,7 @@ export default function Dashboard() {
     return () => {
       cleanupWebSocket();
     };
-  }, [debounceUpdate]);
+  }, [debounceUpdate, token]);
 
   const acknowledgeAlert = (id) => {
     setAlerts(
@@ -218,6 +230,17 @@ export default function Dashboard() {
 
   return (
     <div className="space-y-6">
+      <div className="flex justify-end">
+        <Button
+          variant="outline"
+          onClick={logout}
+          className="text-gray-800 dark:text-white border-gray-300 dark:border-gray-600 hover:bg-gray-100 dark:hover:bg-gray-700"
+        >
+          <LogOut className="h-4 w-4 mr-2" />
+          Logout
+        </Button>
+      </div>
+
       {!isConnected && (
         <Alert variant="destructive" className="mb-4">
           <AlertCircle className="h-4 w-4" />
@@ -230,10 +253,10 @@ export default function Dashboard() {
       )}
 
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-        <Card>
+        <Card className="bg-white dark:bg-gray-800 text-gray-800 dark:text-white border-gray-200 dark:border-gray-700">
           <CardHeader className="pb-2">
             <CardTitle>Network Status</CardTitle>
-            <CardDescription>
+            <CardDescription className="text-gray-500 dark:text-gray-400">
               Current network health and activity
             </CardDescription>
           </CardHeader>
@@ -276,10 +299,10 @@ export default function Dashboard() {
           </CardContent>
         </Card>
 
-        <Card className="md:col-span-2">
+        <Card className="md:col-span-2 bg-white dark:bg-gray-800 text-gray-800 dark:text-white border-gray-200 dark:border-gray-700">
           <CardHeader className="pb-2">
             <CardTitle>Recent Alerts</CardTitle>
-            <CardDescription>
+            <CardDescription className="text-gray-500 dark:text-gray-400">
               Anomalies detected by the AI system
             </CardDescription>
           </CardHeader>
@@ -294,7 +317,7 @@ export default function Dashboard() {
                     variant={
                       alert.severity === "high" ? "destructive" : "default"
                     }
-                    className="relative"
+                    className="relative bg-gray-50 dark:bg-gray-700 text-gray-800 dark:text-white border-gray-200 dark:border-gray-600"
                   >
                     <AlertCircle className="h-4 w-4" />
                     <AlertTitle>{alert.title}</AlertTitle>
@@ -302,7 +325,7 @@ export default function Dashboard() {
                     <Button
                       size="sm"
                       variant="outline"
-                      className="absolute top-2 right-2"
+                      className="absolute top-2 right-2 text-gray-800 dark:text-white border-gray-300 dark:border-gray-600 hover:bg-gray-100 dark:hover:bg-gray-600"
                       onClick={() => acknowledgeAlert(alert.id)}
                     >
                       Acknowledge
@@ -329,20 +352,45 @@ export default function Dashboard() {
         value={activeTab}
         onValueChange={setActiveTab}
       >
-        <TabsList className="grid grid-cols-5 mb-6">
-          <TabsTrigger value="overview">Overview</TabsTrigger>
-          <TabsTrigger value="anomalies">Anomalies</TabsTrigger>
-          <TabsTrigger value="devices">Devices</TabsTrigger>
-          <TabsTrigger value="traffic">Traffic</TabsTrigger>
-          <TabsTrigger value="alerts">Alerts</TabsTrigger>
+        <TabsList className="grid grid-cols-5 mb-6 bg-gray-100 dark:bg-gray-700">
+          <TabsTrigger
+            value="overview"
+            className="text-gray-800 dark:text-white data-[state=active]:bg-white dark:data-[state=active]:bg-gray-600"
+          >
+            Overview
+          </TabsTrigger>
+          <TabsTrigger
+            value="anomalies"
+            className="text-gray-800 dark:text-white data-[state=active]:bg-white dark:data-[state=active]:bg-gray-600"
+          >
+            Anomalies
+          </TabsTrigger>
+          <TabsTrigger
+            value="devices"
+            className="text-gray-800 dark:text-white data-[state=active]:bg-white dark:data-[state=active]:bg-gray-600"
+          >
+            Devices
+          </TabsTrigger>
+          <TabsTrigger
+            value="traffic"
+            className="text-gray-800 dark:text-white data-[state=active]:bg-white dark:data-[state=active]:bg-gray-600"
+          >
+            Traffic
+          </TabsTrigger>
+          <TabsTrigger
+            value="alerts"
+            className="text-gray-800 dark:text-white data-[state=active]:bg-white dark:data-[state=active]:bg-gray-600"
+          >
+            Alerts
+          </TabsTrigger>
         </TabsList>
 
         <TabsContent value="overview" className="space-y-6">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            <Card>
+            <Card className="bg-white dark:bg-gray-800 text-gray-800 dark:text-white border-gray-200 dark:border-gray-700">
               <CardHeader>
                 <CardTitle>Traffic Overview</CardTitle>
-                <CardDescription>
+                <CardDescription className="text-gray-500 dark:text-gray-400">
                   Real-time network traffic (Mbps)
                 </CardDescription>
               </CardHeader>
@@ -351,10 +399,12 @@ export default function Dashboard() {
               </CardContent>
             </Card>
 
-            <Card>
+            <Card className="bg-white dark:bg-gray-800 text-gray-800 dark:text-white border-gray-200 dark:border-gray-700">
               <CardHeader>
                 <CardTitle>Protocol Distribution</CardTitle>
-                <CardDescription>Real-time protocol usage (%)</CardDescription>
+                <CardDescription className="text-gray-500 dark:text-gray-400">
+                  Real-time protocol usage (%)
+                </CardDescription>
               </CardHeader>
               <CardContent>
                 <ProtocolDistribution
@@ -363,10 +413,10 @@ export default function Dashboard() {
               </CardContent>
             </Card>
 
-            <Card className="md:col-span-2">
+            <Card className="md:col-span-2 bg-white dark:bg-gray-800 text-gray-800 dark:text-white border-gray-200 dark:border-gray-700">
               <CardHeader>
                 <CardTitle>Top Talkers</CardTitle>
-                <CardDescription>
+                <CardDescription className="text-gray-500 dark:text-gray-400">
                   Most active devices on the network
                 </CardDescription>
               </CardHeader>
@@ -378,10 +428,12 @@ export default function Dashboard() {
         </TabsContent>
 
         <TabsContent value="anomalies" className="space-y-6">
-          <Card>
+          <Card className="bg-white dark:bg-gray-800 text-gray-800 dark:text-white border-gray-200 dark:border-gray-700">
             <CardHeader>
               <CardTitle>Anomaly Timeline</CardTitle>
-              <CardDescription>Real-time detected anomalies</CardDescription>
+              <CardDescription className="text-gray-500 dark:text-gray-400">
+                Real-time detected anomalies
+              </CardDescription>
             </CardHeader>
             <CardContent className="pt-6">
               <AnomalyTimeline anomalies={dashboardData.recent_anomalies} />
@@ -390,10 +442,12 @@ export default function Dashboard() {
         </TabsContent>
 
         <TabsContent value="devices" className="space-y-6">
-          <Card>
+          <Card className="bg-white dark:bg-gray-800 text-gray-800 dark:text-white border-gray-200 dark:border-gray-700">
             <CardHeader>
               <CardTitle>Network Map</CardTitle>
-              <CardDescription>Real-time connected devices</CardDescription>
+              <CardDescription className="text-gray-500 dark:text-gray-400">
+                Real-time connected devices
+              </CardDescription>
             </CardHeader>
             <CardContent className="pt-6">
               <NetworkMap devices={dashboardData.devices} />
@@ -402,10 +456,10 @@ export default function Dashboard() {
         </TabsContent>
 
         <TabsContent value="traffic" className="space-y-6">
-          <Card>
+          <Card className="bg-white dark:bg-gray-800 text-gray-800 dark:text-white border-gray-200 dark:border-gray-700">
             <CardHeader>
               <CardTitle>Detailed Traffic Analysis</CardTitle>
-              <CardDescription>
+              <CardDescription className="text-gray-500 dark:text-gray-400">
                 Real-time traffic patterns (Mbps)
               </CardDescription>
             </CardHeader>
@@ -419,10 +473,12 @@ export default function Dashboard() {
         </TabsContent>
 
         <TabsContent value="alerts" className="space-y-6">
-          <Card>
+          <Card className="bg-white dark:bg-gray-800 text-gray-800 dark:text-white border-gray-200 dark:border-gray-700">
             <CardHeader>
               <CardTitle>Alert History</CardTitle>
-              <CardDescription>Real-time anomaly alerts</CardDescription>
+              <CardDescription className="text-gray-500 dark:text-gray-400">
+                Real-time anomaly alerts
+              </CardDescription>
             </CardHeader>
             <CardContent>
               <AlertsList alerts={alerts} onAcknowledge={acknowledgeAlert} />

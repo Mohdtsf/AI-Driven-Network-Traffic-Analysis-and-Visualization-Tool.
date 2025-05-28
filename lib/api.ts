@@ -1,11 +1,13 @@
-// lib/api.ts
-import { io } from "socket.io-client";
+import { io, Socket } from "socket.io-client";
 
-const API_URL = process.env.NEXT_PUBLIC_API_URL;
+const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000";
+let socket: Socket | null = null;
 
-export async function fetchNetworkOverview() {
+export async function fetchNetworkOverview(token: string | null) {
   try {
-    const response = await fetch(`${API_URL}/api/network/overview`);
+    const response = await fetch(`${API_URL}/api/network/overview`, {
+      headers: token ? { Authorization: `Bearer ${token}` } : {},
+    });
     if (!response.ok) {
       throw new Error(`API error: ${response.status}`);
     }
@@ -16,10 +18,13 @@ export async function fetchNetworkOverview() {
   }
 }
 
-export async function fetchTrafficData(hours = 24) {
+export async function fetchTrafficData(token: string | null, hours = 24) {
   try {
     const response = await fetch(
-      `${API_URL}/api/network/traffic?hours=${hours}`
+      `${API_URL}/api/network/traffic?hours=${hours}`,
+      {
+        headers: token ? { Authorization: `Bearer ${token}` } : {},
+      }
     );
     if (!response.ok) {
       throw new Error(`API error: ${response.status}`);
@@ -31,13 +36,18 @@ export async function fetchTrafficData(hours = 24) {
   }
 }
 
-export async function fetchAnomalies(options = { hours: 24, severity: null }) {
+export async function fetchAnomalies(
+  token: string | null,
+  options = { hours: 24, severity: null }
+) {
   try {
     let url = `${API_URL}/api/network/anomalies?hours=${options.hours}`;
     if (options.severity) {
       url += `&severity=${options.severity}`;
     }
-    const response = await fetch(url);
+    const response = await fetch(url, {
+      headers: token ? { Authorization: `Bearer ${token}` } : {},
+    });
     if (!response.ok) {
       throw new Error(`API error: ${response.status}`);
     }
@@ -48,9 +58,11 @@ export async function fetchAnomalies(options = { hours: 24, severity: null }) {
   }
 }
 
-export async function fetchDevices() {
+export async function fetchDevices(token: string | null) {
   try {
-    const response = await fetch(`${API_URL}/api/network/devices`);
+    const response = await fetch(`${API_URL}/api/network/devices`, {
+      headers: token ? { Authorization: `Bearer ${token}` } : {},
+    });
     if (!response.ok) {
       throw new Error(`API error: ${response.status}`);
     }
@@ -61,9 +73,11 @@ export async function fetchDevices() {
   }
 }
 
-export async function fetchTopTalkers() {
+export async function fetchTopTalkers(token: string | null) {
   try {
-    const response = await fetch(`${API_URL}/api/network/top-talkers`);
+    const response = await fetch(`${API_URL}/api/network/top-talkers`, {
+      headers: token ? { Authorization: `Bearer ${token}` } : {},
+    });
     if (!response.ok) {
       throw new Error(`API error: ${response.status}`);
     }
@@ -74,10 +88,21 @@ export async function fetchTopTalkers() {
   }
 }
 
-export function setupWebSocket(onMessage: (data: any) => void) {
-  const socket = io(API_URL, {
+export function setupWebSocket(
+  token: string | null,
+  onMessage: (data: any) => void
+) {
+  if (!token) {
+    console.error("No token available for WebSocket connection");
+    return () => {};
+  }
+
+  socket = io(API_URL, {
     transports: ["websocket"],
     path: "/socket.io",
+    auth: {
+      token: token, // Pass token in the auth object
+    },
   });
 
   socket.on("connect", () => {
@@ -101,6 +126,9 @@ export function setupWebSocket(onMessage: (data: any) => void) {
   });
 
   return () => {
-    socket.disconnect();
+    if (socket) {
+      socket.disconnect();
+      socket = null;
+    }
   };
 }
