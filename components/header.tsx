@@ -15,9 +15,9 @@ export default function Header() {
       <div className="container flex h-14 max-w-screen-2xl items-center">
         <div className="mr-4 flex">
           <a className="mr-6 flex items-center space-x-2" href="/">
-            <span className="font-bold sm:inline-block">NetMonitor AI</span>
+            <h1 className="m-16 font-bold sm:inline-block">NetMonitor AI</h1>
           </a>
-          <nav className="hidden md:flex items-center gap-6 text-sm">
+          {/* <nav className="hidden md:flex items-center gap-6 text-sm">
             <a
               className="transition-colors hover:text-foreground/80 text-foreground/60"
               href="/dashboard"
@@ -36,7 +36,7 @@ export default function Header() {
             >
               Settings
             </a>
-          </nav>
+          </nav> */}
         </div>
         <div className="flex flex-1 items-center justify-end space-x-2">
           <Button

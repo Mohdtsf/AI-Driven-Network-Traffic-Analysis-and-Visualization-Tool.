@@ -1,12 +1,15 @@
-import { Inter } from "next/font/google";
+import type React from "react";
 import "./globals.css";
+import { Inter } from "next/font/google";
+import { ThemeProvider } from "@/components/theme-provider";
 import { AuthProvider } from "@/lib/auth-context";
+import Header from "@/components/header";
 
 const inter = Inter({ subsets: ["latin"] });
 
 export const metadata = {
-  title: "Network Monitoring Dashboard",
-  description: "AI-driven network traffic analysis",
+  title: "Network Traffic Analysis",
+  description: "AI-Driven Network Traffic Analysis and Visualization Tool",
 };
 
 export default function RootLayout({
@@ -15,9 +18,12 @@ export default function RootLayout({
   children: React.ReactNode;
 }) {
   return (
-    <html lang="en">
+    <html lang="en" suppressHydrationWarning>
       <body className={inter.className}>
-        <AuthProvider>{children}</AuthProvider>
+        <ThemeProvider attribute="class" defaultTheme="system" enableSystem>
+          <Header />
+          <AuthProvider>{children}</AuthProvider>
+        </ThemeProvider>
       </body>
     </html>
   );
